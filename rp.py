@@ -2,15 +2,17 @@ import numpy as np
 import pandas as pd
 from tqdm.notebook import tqdm
 from kneed import KneeLocator
-
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 class rp_AB(object):
 
-    def __init__(self,df,elementA,elementB,score):
+    def __init__(self,df,elementA,elementB,score,truth):
         self.df = df.copy()
         self.elementA = elementA
         self.elementB = elementB
         self.score = score
+        self.truth = truth
 
         self.elementA_rank = '{}_rank'.format(elementA)
         self.elementB_rank = '{}_rank'.format(elementB)
@@ -58,6 +60,7 @@ class rp_AB(object):
         elementA_baseline_func = lambda A: baseline_func(A[self.elementA_rank].values,A[self.score].values)
         elementB_baseline_func = lambda B: baseline_func(B[self.elementB_rank].values,B[self.score].values)
         if progress:
+            tqdm().pandas()
             print('Calculating baselines for {} groups...'.format(self.elementA))
             elementA_baselines = self.elementA_group.progress_apply(elementA_baseline_func)
             print('Calculating baselines for {} groups...'.format(self.elementB))
@@ -114,6 +117,31 @@ class rp_AB(object):
         self.add_ranks(ranking_method)
         self.calculate_baselines(baseline_func,progress)
         return self.percentile_features(dtype)
+
+    def plot_pairs(self, A, B,include_truth=False):
+        A_group = self.elementA_group.get_group(A).copy()
+        B_group = self.elementB_group.get_group(B).copy()
+        A_group['highlight'] = False
+        B_group['highlight'] = False
+        try:
+            A_group.loc[(A,B), 'highlight'] = True
+        except:
+            print('{} is not contained in the {} group.'.format(self.elementA,self.elementB))
+            return
+        B_group.loc[A, 'highlight'] = True
+        if include_truth:
+            hue = self.truth
+        else:
+            hue = None
+        fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(10, 7.5))
+        sns.scatterplot(x=self.elementA_rank, y=self.score, data=A_group, ax=ax1, hue=hue)
+        sns.scatterplot(x=self.elementA_rank, y=self.score, data=A_group.loc[A_group['highlight']], ax=ax1, s=90,color='y')
+        ax1.set(title='{}'.format(self.elementA))
+        sns.scatterplot(x=self.elementB_rank, y=self.score, data=B_group, ax=ax2, hue=hue)
+        sns.scatterplot(x=self.elementB_rank, y=self.score, data=B_group.loc[B_group['highlight']], ax=ax2, s=90,color='y')
+        ax2.set(title='{}'.format(self.elementB))
+        plt.legend()
+        plt.show()
 
 #Baseline functions
 def get_percentile(ranks,scores,percentile):
