@@ -5,9 +5,9 @@ from kneed import KneeLocator
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-class rp_AB(object):
+class RPAB(object):
 
-    def __init__(self,df,elementA,elementB,score,truth):
+    def __init__(self,df,elementA,elementB,score,truth,progress=False,baseline_method='knee',ranking_method='first'):
         self.df = df.copy()
         self.elementA = elementA
         self.elementB = elementB
@@ -34,6 +34,8 @@ class rp_AB(object):
                   'fdp_{}_base'.format(elementA),'fdp_{}_base'.format(elementB),'fd_{}_base'.format(elementA),'fd_{}_base'.format(elementB),
                   'std_{}_dist'.format(elementA),'std_{}_dist'.format(elementB)]
         self.group_by_element()
+        self.add_ranks(ranking_method)
+        self.calculate_baselines(default_methods[baseline_method],progress)
 
     def group_by_element(self):
         """ Create group objects for use in other functions needing one2all scores
@@ -74,7 +76,7 @@ class rp_AB(object):
                          .join(pd.DataFrame.from_records(list(elementB_baselines.values),index=elementB_baselines.index,columns=[self.elementB_base,self.elementB_base_rank]),on=self.elementB)
         self.df.astype({self.elementA_base:'category',self.elementA_base_rank:'category',self.elementB_base:'category',self.elementB_base_rank:'category'},copy=False)
 
-    def percentile_features(self,dtype):
+    def percentile_features(self,dtype='float64'):
         elementA_base = self.df[self.elementA_base].astype(dtype).values
         elementB_base = self.df[self.elementB_base].astype(dtype).values
         elementA_base_perc = self.df[self.elementA_base_rank].astype(dtype).values
@@ -110,15 +112,11 @@ class rp_AB(object):
                       elementA_base,elementA_base_perc,elementB_base,elementB_base_perc,
                       fdp_elementA_base,fdp_elementB_base,fd_elementA_base,fd_elementB_base,
                       std_elementA_dist,std_elementB_dist]).T
+        feature_df = pd.DataFrame(feature_df,self.df.index,columns=self.columns)
+        feature_df[self.truth] = self.df[self.truth]
+        return feature_df
 
-        return pd.DataFrame(feature_df,self.df.index,columns=self.columns)
-
-    def features_from_df(self,baseline_func,progress=False,ranking_method='first',dtype='float64'):
-        self.add_ranks(ranking_method)
-        self.calculate_baselines(baseline_func,progress)
-        return self.percentile_features(dtype)
-
-    def plot_pairs(self, A, B,include_truth=False):
+    def plot_pairs(self, A, B,include_baseline=True,include_truth=False):
         A_group = self.elementA_group.get_group(A).copy()
         B_group = self.elementB_group.get_group(B).copy()
         A_group['highlight'] = False
@@ -129,25 +127,28 @@ class rp_AB(object):
             print('{} is not contained in the {} group.'.format(self.elementA,self.elementB))
             return
         B_group.loc[A, 'highlight'] = True
-        if include_truth:
-            hue = self.truth
-        else:
-            hue = None
         fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(10, 7.5))
-        sns.scatterplot(x=self.elementA_rank, y=self.score, data=A_group, ax=ax1, hue=hue)
+        sns.scatterplot(x=self.elementA_rank, y=self.score, data=A_group, ax=ax1)
+        sns.scatterplot(x=self.elementB_rank, y=self.score, data=B_group, ax=ax2)
+        if include_truth:
+            sns.scatterplot(x=self.elementA_rank, y=self.score, data=A_group, ax=ax1,hue=self.truth)
+            sns.scatterplot(x=self.elementB_rank, y=self.score, data=B_group, ax=ax2,hue=self.truth)
+            plt.legend()
+        if include_baseline:
+            ax1.axhline(self.df.loc[(A,B),self.elementA_base])
+            ax2.axhline(self.df.loc[(A,B),self.elementB_base])
         sns.scatterplot(x=self.elementA_rank, y=self.score, data=A_group.loc[A_group['highlight']], ax=ax1, s=90,color='y')
-        ax1.set(title='{}'.format(self.elementA))
-        sns.scatterplot(x=self.elementB_rank, y=self.score, data=B_group, ax=ax2, hue=hue)
         sns.scatterplot(x=self.elementB_rank, y=self.score, data=B_group.loc[B_group['highlight']], ax=ax2, s=90,color='y')
+        ax1.set(title='{}'.format(self.elementA))
         ax2.set(title='{}'.format(self.elementB))
-        plt.legend()
         plt.show()
 
 #Baseline functions
-def get_percentile(ranks,scores,percentile):
+global default_methods
+
+def get_percentile(ranks,scores,percentile=0.5):
     index = np.abs(ranks-percentile).argmin()
     return scores[index],percentile
-
 
 def find_knee(ranks,scores,sensitivity=5,threshold=100,fallback=0.5):
     if len(ranks)>threshold:
@@ -165,3 +166,5 @@ def find_knee(ranks,scores,sensitivity=5,threshold=100,fallback=0.5):
             return np.nan,np.nan
     else:
         return get_percentile(ranks,scores,fallback)
+
+default_methods = {'percentile':get_percentile,'knee':find_knee}
