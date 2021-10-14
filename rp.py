@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 class RPAB(object):
 
-    def __init__(self,df,elementA,elementB,score,truth,progress=False,baseline_method='knee',ranking_method='first'):
+    def __init__(self,df,elementA,elementB,score,truth=None,progress=False,baseline_method='knee',ranking_method='first'):
         self.df = df.copy()
         self.elementA = elementA
         self.elementB = elementB
@@ -113,7 +113,8 @@ class RPAB(object):
                       fdp_elementA_base,fdp_elementB_base,fd_elementA_base,fd_elementB_base,
                       std_elementA_dist,std_elementB_dist]).T
         feature_df = pd.DataFrame(feature_df,self.df.index,columns=self.columns)
-        feature_df[self.truth] = self.df[self.truth]
+        if self.truth is not None:
+            feature_df[self.truth] = self.df[self.truth]
         return feature_df
 
     def plot_pairs(self, A, B,include_baseline=True,include_truth=False):
@@ -130,7 +131,7 @@ class RPAB(object):
         fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(10, 7.5))
         sns.scatterplot(x=self.elementA_rank, y=self.score, data=A_group, ax=ax1)
         sns.scatterplot(x=self.elementB_rank, y=self.score, data=B_group, ax=ax2)
-        if include_truth:
+        if include_truth or self.truth is not None:
             sns.scatterplot(x=self.elementA_rank, y=self.score, data=A_group, ax=ax1,hue=self.truth)
             sns.scatterplot(x=self.elementB_rank, y=self.score, data=B_group, ax=ax2,hue=self.truth)
             plt.legend()
