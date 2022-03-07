@@ -131,7 +131,7 @@ class RPAB(object):
         fig, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=(10, 7.5))
         sns.scatterplot(x=self.elementA_rank, y=self.score, data=A_group, ax=ax1)
         sns.scatterplot(x=self.elementB_rank, y=self.score, data=B_group, ax=ax2)
-        if include_truth or self.truth is not None:
+        if include_truth and self.truth is not None:
             sns.scatterplot(x=self.elementA_rank, y=self.score, data=A_group, ax=ax1,hue=self.truth)
             sns.scatterplot(x=self.elementB_rank, y=self.score, data=B_group, ax=ax2,hue=self.truth)
             plt.legend()
