@@ -117,7 +117,7 @@ class RPAB(object):
             feature_df[self.truth] = self.df[self.truth]
         return feature_df
 
-    def plot_pairs(self, A, B,include_baseline=True,include_truth=False):
+    def plot_pairs(self, A, B,include_baseline=True,include_truth=False,show_plot=True):
         A_group = self.elementA_group.get_group(A).copy()
         B_group = self.elementB_group.get_group(B).copy()
         A_group['highlight'] = False
@@ -142,7 +142,11 @@ class RPAB(object):
         sns.scatterplot(x=self.elementB_rank, y=self.score, data=B_group.loc[B_group['highlight']], ax=ax2, s=90,color='y')
         ax1.set(title='{}'.format(self.elementA))
         ax2.set(title='{}'.format(self.elementB))
-        plt.show()
+        if show_plot:
+            plt.show()
+            return
+        else:
+            return fig
 
 #Baseline functions
 global default_methods
